@@ -36,6 +36,8 @@ local BatteryVoltage
 local rssi, alarm_low, alarm_crit
 local RunClock = 0
 local BackgroundClock = 0
+local batt_id
+-- local rssi_id
 
 -- display parameters
 
@@ -68,15 +70,20 @@ local function init()
   VoltageMax = VoltageMax*BatteryCells*100
   VoltageOffset = VoltageOffset*BatteryCells*100
   VoltageRange = VoltageMax-VoltageOffset
-  BatteryVoltage = getValue(SensorOne)
+  -- BatteryVoltage = getValue(SensorOne)
+  batt_id = getFieldInfo(SensorOne).id 
+  BatteryVoltage = getValue(batt_id)
   rssi, alarm_low, alarm_crit = getRSSI()
   -- RSS = getValue(SensorTwo)
+  -- rssi_id = getFieldInfo(SensorTwo).id 
+  -- RSS = getValue(rssi_id)
 end
 
 local function background()
   -- background is called periodically
   if (BackgroundClock % 16 == 0) then
-    BatteryVoltage = getValue(SensorOne)
+    -- BatteryVoltage = getValue(SensorOne)
+    BatteryVoltage = getValue(batt_id)
     rssi, alarm_low, alarm_crit = getRSSI()
     BackgroundClock = 0
   end
@@ -91,6 +98,7 @@ local function run(event)
     local VoltageScaled
 
 --  RSS = getValue(SensorTwo)
+--  RSS = getValue(rssi_id)
 
     if (BatteryVoltage*100 < VoltageOffset ) then
       VoltageScaled = 0
