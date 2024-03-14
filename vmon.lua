@@ -12,7 +12,12 @@
 local SensorOne = "RxBt"
 local SensorTwo = "RxBt-"
 local SensorThree = "RxBt+"
-local is_telemetry = false
+local SensorFour = "Pres"
+local is_rxbt = false
+local is_vario = false
+local varioData = {}
+local VARIO_DATA_LENGTH = 40 --temp
+local VARIO_SAMPLES = 3
 
 -- Battery parameters
 
@@ -42,15 +47,15 @@ local batt_id, batt_low_id, batt_high_id
 
 local Telemetry_H = 38
 local Telemetry_W = 74
-local Margin = 2
-local Title_Indent = 10
-local Indent = 4
-local DBL_H = 16
-local SML_H = 8
-local MID_H = 12
-local Time_X = 53
+local MARGIN = 2
+local TITLE_INDENT = 10
+local INDENT = 4
+local DBL_FONT_SIZE = 16
+local SML_FONT_SIZE = 8
+local MID_FONT_SIZE = 12
+local TIME_INDENT = 53
 local RSSI_W = 38
-local Signal_H = LCD_H-DBL_H*2-MID_H
+local Signal_H = LCD_H-DBL_FONT_SIZE*2-MID_FONT_SIZE
 
 --local rxbt = loadScript("/SCRIPTS/TELEMETRY/VMON/rxbt.lua")
 --local gt = rxbt()
@@ -61,16 +66,29 @@ local function getTelemetryId(name)
   return -1
 end
 
-local function backgroundTelemetry()
+local function backgroundRXBT()
   BatteryVoltage = getValue(batt_id)
   BatteryVoltageHigh = getValue(batt_high_id)
   BatteryVoltageLow = getValue(batt_low_id)
   rssi, alarm_low, alarm_crit = getRSSI()
 end
 
+local function backgroundVario()
+      for i=VARIO_DATA_LENGTH,1,-1 do
+	varioData[i] = varioData[i-1]
+      end 
+      varioData[0] = math.random(-6,6)
+end
+
 local function initTelemetry()
-  is_telemetry = getTelemetryId(SensorOne) > -1
-  if (is_telemetry) then
+  is_rxbt = getTelemetryId(SensorOne) > -1
+  is_vario = getTelemetryId(SensorFour) > -1
+  if (is_vario) then
+    for i=0,VARIO_DATA_LENGTH do
+      varioData[i] = math.random(-6,6)
+    end
+  end
+  if (is_rxbt) then
     VoltageAlarm = (VoltageAlarm-VoltageOffset)*BatteryCells*100
     VoltageMax = VoltageMax*BatteryCells*100
     VoltageOffset = VoltageOffset*BatteryCells*100
@@ -78,22 +96,22 @@ local function initTelemetry()
     batt_id = getTelemetryId(SensorOne) 
     batt_low_id = getTelemetryId(SensorTwo)
     batt_high_id = getTelemetryId(SensorThree)
-    backgroundTelemetry()
+    backgroundRXBT()
   end
 end
 
 local function drawRSSI(x, y, w, h)
     -- Draw RSSI
-    local barwidth = (w-Margin*5)/4
+    local barwidth = (w-MARGIN*5)/4
     local SignalBars = -1
     if rssi > alarm_crit then
-      lcd.drawText( Telemetry_W+Indent+Margin*2, DBL_H+Telemetry_H+Margin, "RSSI")
-      lcd.drawText(lcd.getLastPos(), DBL_H+Telemetry_H+Margin, ":")
-      lcd.drawNumber(lcd.getLastPos(), DBL_H+Telemetry_H+Margin, rssi)
+      lcd.drawText( Telemetry_W+INDENT+MARGIN*2, DBL_FONT_SIZE+Telemetry_H+MARGIN, "RSSI")
+      lcd.drawText(lcd.getLastPos(), DBL_FONT_SIZE+Telemetry_H+MARGIN, ":")
+      lcd.drawNumber(lcd.getLastPos(), DBL_FONT_SIZE+Telemetry_H+MARGIN, rssi)
     else
-      lcd.drawText( Telemetry_W+Indent+Margin*2, DBL_H+Telemetry_H+Margin, "RSSI", BLINK)
-      lcd.drawText(lcd.getLastPos(), DBL_H+Telemetry_H+Margin, ":",BLINK)
-      lcd.drawNumber(lcd.getLastPos(), DBL_H+Telemetry_H+Margin, rssi,BLINK)
+      lcd.drawText( Telemetry_W+INDENT+MARGIN*2, DBL_FONT_SIZE+Telemetry_H+MARGIN, "RSSI", BLINK)
+      lcd.drawText(lcd.getLastPos(), DBL_FONT_SIZE+Telemetry_H+MARGIN, ":",BLINK)
+      lcd.drawNumber(lcd.getLastPos(), DBL_FONT_SIZE+Telemetry_H+MARGIN, rssi,BLINK)
     end
     if rssi > RSSI_HIGH then
       SignalBars = 3
@@ -105,12 +123,28 @@ local function drawRSSI(x, y, w, h)
       SignalBars = 0
     end
     while SignalBars > -1 do
-     lcd.drawFilledRectangle( (x)+(SignalBars)*(barwidth+Margin*2), y-h+(3-SignalBars)*(h/4), barwidth, h-(3-SignalBars)*(h/4))
+     lcd.drawFilledRectangle( (x)+(SignalBars)*(barwidth+MARGIN*2), y-h+(3-SignalBars)*(h/4), barwidth, h-(3-SignalBars)*(h/4))
       SignalBars = SignalBars - 1
     end
 end
 
-local function drawTelemetry(x, y, w, h)
+local function drawVario(x, y, w, h)
+  local data_points = w / (MARGIN*3)
+  for i=0, data_points-1 do
+	lcd.drawFilledRectangle(x+w-MARGIN*2-i*(MARGIN*3), y+h/2+varioData[i], MARGIN*2, MARGIN*2)
+  end
+  lcd.drawLine(x, y+h/2, x+w, y+h/2, DOTTED, FORCE)
+  lcd.drawText(x, y+h+MARGIN, "Vspd")
+  lcd.drawText(lcd.getLastPos(), y+h+MARGIN, ":")
+  local avg = 0
+  for i=0, VARIO_SAMPLES do
+    avg = avg + varioData[i]
+  end
+  avg = avg/VARIO_SAMPLES 
+  lcd.drawNumber(lcd.getLastPos(), y+h+MARGIN, avg)
+end
+
+local function drawRXBT(x, y, w, h)
   local Butn_W = 3
   local Butn_H = 7
   local VoltageScaled
@@ -123,65 +157,70 @@ local function drawTelemetry(x, y, w, h)
   end
   local SignalBars = math.floor((12 * VoltageScaled / VoltageRange)+0.1) 
   lcd.drawFilledRectangle(x, y, w, h)
-  lcd.drawFilledRectangle(x+Margin, y+DBL_H+Margin*2, w-Margin*2-Butn_W, h-DBL_H-Margin*3)
-  lcd.drawFilledRectangle(x+w-Margin-Butn_W, y+DBL_H+Margin+Butn_H, Butn_W, Butn_H)
+  lcd.drawFilledRectangle(x+MARGIN, y+DBL_FONT_SIZE+MARGIN*2, w-MARGIN*2-Butn_W, h-DBL_FONT_SIZE-MARGIN*3)
+  lcd.drawFilledRectangle(x+w-MARGIN-Butn_W, y+DBL_FONT_SIZE+MARGIN+Butn_H, Butn_W, Butn_H)
   while SignalBars > 0 do
-   lcd.drawFilledRectangle(x+Margin*2+(SignalBars-1)*5, y+DBL_H+Margin*3, Butn_W, h-DBL_H-Margin*5)
+   lcd.drawFilledRectangle(x+MARGIN*2+(SignalBars-1)*5, y+DBL_FONT_SIZE+MARGIN*3, Butn_W, h-DBL_FONT_SIZE-MARGIN*5)
    SignalBars = SignalBars - 1
   end 
-  lcd.drawText(Indent+w-Margin, y+Margin, "V", DBLSIZE + RIGHT + INVERS)
-  lcd.drawNumber(lcd.getLastLeftPos()-Margin, y+Margin, BatteryVoltage*10, DBLSIZE + PREC1 + RIGHT + INVERS)
+  lcd.drawText(INDENT+w-MARGIN, y+MARGIN, "V", DBLSIZE + RIGHT + INVERS)
+  lcd.drawNumber(lcd.getLastLeftPos()-MARGIN, y+MARGIN, BatteryVoltage*10, DBLSIZE + PREC1 + RIGHT + INVERS)
   if (VoltageScaled > VoltageAlarm) then
-    lcd.drawText(x, y+h+Margin, SensorOne)
+    lcd.drawText(x, y+h+MARGIN, SensorOne)
   else
-    lcd.drawText(x, y+h+Margin, SensorOne, BLINK)
+    lcd.drawText(x, y+h+MARGIN, SensorOne, BLINK)
   end
-  lcd.drawText(lcd.getLastPos(), y+h+Margin, ":")
-  lcd.drawNumber(lcd.getLastPos(), y+h+Margin, BatteryCells)
-  lcd.drawText(lcd.getLastPos(), y+h+Margin, "S")
+  lcd.drawText(lcd.getLastPos(), y+h+MARGIN, ":")
+  lcd.drawNumber(lcd.getLastPos(), y+h+MARGIN, BatteryCells)
+  lcd.drawText(lcd.getLastPos(), y+h+MARGIN, "S")
 end
 
 local function drawBasicScreen()
     lcd.clear()
     -- Draw title and background
-    lcd.drawText(Title_Indent, 0, model.getInfo()['name'], DBLSIZE)
+    lcd.drawText(TITLE_INDENT, 0, model.getInfo()['name'], DBLSIZE)
     -- Draw time
-    lcd.drawText(Time_X, LCD_H-SML_H+1, string.format("%02d", getDateTime()['hour']))
-    lcd.drawText(lcd.getLastPos(), LCD_H-SML_H+1, ":", BLINK)
-    lcd.drawText(lcd.getLastPos(), LCD_H-SML_H+1, string.format("%02d", getDateTime()['min']))
+    lcd.drawText(TIME_INDENT, LCD_H-SML_FONT_SIZE+1, string.format("%02d", getDateTime()['hour']))
+    lcd.drawText(lcd.getLastPos(), LCD_H-SML_FONT_SIZE+1, ":", BLINK)
+    lcd.drawText(lcd.getLastPos(), LCD_H-SML_FONT_SIZE+1, string.format("%02d", getDateTime()['min']))
 
 end
 
 local function drawMainScreen()
     -- Draw telemetry
-    drawTelemetry(Indent, DBL_H, Telemetry_W, Telemetry_H)
+    if(is_vario) then
+      drawVario(INDENT, DBL_FONT_SIZE, Telemetry_W, Telemetry_H)
+    elseif(is_rxbt) then
+      drawRXBT(INDENT, DBL_FONT_SIZE, Telemetry_W, Telemetry_H)
+    end
 
     -- Draw timer
     local timer_name = model.getTimer(0).name
     if (timer_name ~= "") then
-      lcd.drawText(LCD_W-Indent-Margin, DBL_H-SML_H+Margin, timer_name, SMLSIZE + RIGHT)
-      lcd.drawTimer(Telemetry_W+Indent+Margin*2, DBL_H+1, model.getTimer(0).value, DBLSIZE)
+      lcd.drawText(LCD_W-INDENT-MARGIN, DBL_FONT_SIZE-SML_FONT_SIZE+MARGIN, timer_name, SMLSIZE + RIGHT)
+      lcd.drawTimer(Telemetry_W+INDENT+MARGIN*2, DBL_FONT_SIZE+1, model.getTimer(0).value, DBLSIZE)
     end
 
     -- Draw RSSI
-    drawRSSI(Telemetry_W+Indent+Margin*2, DBL_H+Telemetry_H, RSSI_W, LCD_H-DBL_H*2-MID_H)
+    drawRSSI(Telemetry_W+INDENT+MARGIN*2, DBL_FONT_SIZE+Telemetry_H, RSSI_W, LCD_H-DBL_FONT_SIZE*2-MID_FONT_SIZE)
 end
 
 local function run(event)
   -- run is called periodically only when screen is visible
-  if(is_telemetry) then
+  if(is_rxbt) then
     if (RunClock % 2 == 0) then
       drawBasicScreen()
       drawMainScreen()
       if (RunClock % 16 == 0) then
-        backgroundTelemetry()
+        backgroundRXBT()
+	backgroundVario()
         RunClock = 0
       end
     end
     RunClock = RunClock + 1
   else
     drawBasicScreen()
-    lcd.drawText(Indent, DBL_H+Margin, "Waiting for telemetry...")
+    lcd.drawText(INDENT, DBL_FONT_SIZE+MARGIN, "Waiting for telemetry...")
     initTelemetry()
   end
 end
