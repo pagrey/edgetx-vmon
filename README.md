@@ -1,7 +1,7 @@
 # EdgeTX Telemetry Lua Script
 EdgeTX telemetry lua script to display battery voltage, timer and signal strength. Designed to look like a zoomed section of the main screen so the timer and battery voltage are easy to see at a glance. 
 
-![image](../assets/screenshot_boxer_23-12-23_10-16-03.png)
+![image](../assets/screenshot_boxer_24-03-15_17-02-34.png)
 
 For 128x64 b&w screens like the Boxer, T-Lite or similar radios. Tested to work on 212x64 screens but not really designed for that.
 
