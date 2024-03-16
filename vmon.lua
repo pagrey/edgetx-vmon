@@ -16,7 +16,7 @@ local rxbt = "/SCRIPTS/TELEMETRY/VMON/rxbt.lua"
 local chunk, telemetry, data
 local RunClock = 0
 local is_telemetry = false
-local is_debug = true
+local is_debug = false
 
 -- display constants
 local DISPLAY_CONST = { }
@@ -107,9 +107,11 @@ local function run(event)
     drawBasicScreen(DISPLAY_CONST)
     drawStandbyScreen(DISPLAY_CONST)
     chunk = loadScript(rxbt)
-    local initTelemetry, updateTelemetry, drawTelemetry = chunk()
-    telemetry = initTelemetry()
-    is_telemetry = telemetry.BatteryId > 0
+    if (chunk) then
+      local initTelemetry, updateTelemetry, drawTelemetry = chunk()
+      telemetry = initTelemetry()
+      is_telemetry = telemetry.BatteryId > 0
+    end
   end
 end
 
