@@ -6,14 +6,16 @@
 -- https://github.com/pagrey
 --
 
+-- Sensor name
+
+local SensorOne = "RxBt"
+
 -- RSSI threshold values
 -- low and critical are read from the radio
 
 local RSSI_HIGH = 89
 local RSSI_MED = 74
 
-local rxbt = "/SCRIPTS/TELEMETRY/VMON/rxbt.lua"
-local chunk, telemetry, data
 local RunClock = 0
 local is_telemetry = false
 local is_debug = false
@@ -30,12 +32,96 @@ DISPLAY_CONST = {
   DBL_FONT_SIZE = 16,
   SML_FONT_SIZE = 8,
   MID_FONT_SIZE = 12,
-  TELEMETRY_H = 38,
-  TELEMETRY_W = 74,
-  BUTTON_W = 3, 
-  BUTTON_H = 7,
   RSSI_W = 38
 }
+
+local function getTelemetryId(name)
+ field = getFieldInfo(name)
+ if getFieldInfo(name) then return field.id end
+  return -1
+end
+
+local function initTelemetry()
+
+-- Battery parameters
+
+  local BatteryCells, VoltageAlarm, VoltageOffset
+  local VoltageMax = 4.2
+
+-- Model cell count and battery thresholds
+
+  local OneCell = {
+    DLG950 = true
+  }
+  local ModelInfo = model.getInfo()
+  if (OneCell[ModelInfo.name]) then
+    BatteryCells = 1
+    VoltageAlarm = 3.4
+    VoltageOffset = 3.0
+  else
+    BatteryCells = 2
+    VoltageAlarm = 3.4
+    VoltageOffset = 3.0
+  end 
+  local telemetry = { }
+  telemetry = {
+    BatteryId = getTelemetryId(SensorOne),
+    BatteryLowId = getTelemetryId(SensorOne .. "-"),
+    BatteryHighId = getTelemetryId(SensorOne .. "+"),
+    VoltageAlarm = (VoltageAlarm-VoltageOffset)*BatteryCells*100,
+    VoltageMax = VoltageMax*BatteryCells*100,
+    VoltageOffset = VoltageOffset*BatteryCells*100,
+    VoltageRange = 100
+  }
+  telemetry.VoltageRange = telemetry.VoltageMax-telemetry.VoltageOffset
+  local data = { }
+  return telemetry, data
+end
+
+local function updateTelemetry(telemetry, data)
+  data = {
+    BatteryVoltage = getValue(telemetry.BatteryId),
+    BatteryVoltageHigh = getValue(telemetry.BatteryHighId),
+    BatteryVoltageLow = getValue(telemetry.BatteryLowId),
+  }
+  return data
+end
+
+local function drawTelemetry(telemetry, data, d)
+  local BUTTON_W = 3 
+  local BUTTON_H = 7
+  local SEGMENTS = 9
+  local BatteryWidth = d.TELEMETRY_W-d.MARGIN*3-BUTTON_W 
+  local SegmentWidth = math.floor(BatteryWidth/SEGMENTS)
+  local VoltageScaled
+  if (data.BatteryVoltage*100 < telemetry.VoltageOffset ) then
+    VoltageScaled = 0
+  elseif (data.BatteryVoltage*100 > telemetry.VoltageMax) then
+    VoltageScaled = telemetry.VoltageRange
+  else               
+    VoltageScaled = data.BatteryVoltage*100 - telemetry.VoltageOffset
+  end  
+  local BatteryBar = math.floor(SEGMENTS * VoltageScaled / telemetry.VoltageRange) 
+  -- start drawing
+  lcd.drawFilledRectangle(d.MARGIN, d.DBL_FONT_SIZE, d.TELEMETRY_W, d.TELEMETRY_H)
+  lcd.drawFilledRectangle(d.MARGIN+d.MARGIN, d.DBL_FONT_SIZE+d.DBL_FONT_SIZE+d.MARGIN*2, d.TELEMETRY_W-d.MARGIN*2-BUTTON_W, d.TELEMETRY_H-d.DBL_FONT_SIZE-d.MARGIN*3)    
+  lcd.drawFilledRectangle(d.MARGIN+d.TELEMETRY_W-d.MARGIN-BUTTON_W, d.DBL_FONT_SIZE+d.DBL_FONT_SIZE+d.MARGIN+BUTTON_H, BUTTON_W, BUTTON_H)
+  while BatteryBar > 0 do
+   lcd.drawFilledRectangle(d.MARGIN*3+(BatteryBar-1)*(SegmentWidth), d.DBL_FONT_SIZE+d.DBL_FONT_SIZE+d.MARGIN*3, SegmentWidth-d.MARGIN, d.TELEMETRY_H-d.DBL_FONT_SIZE-d.MARGIN*5)
+   BatteryBar = BatteryBar - 1
+  end 
+  lcd.drawText(d.INDENT+d.TELEMETRY_W-d.MARGIN*2, d.DBL_FONT_SIZE+d.MARGIN, "V", DBLSIZE + RIGHT + INVERS)
+  lcd.drawNumber(lcd.getLastLeftPos()-d.MARGIN, d.DBL_FONT_SIZE+d.MARGIN, data.BatteryVoltage*10, DBLSIZE + PREC1 + RIGHT + INVERS)
+  if (VoltageScaled > telemetry.VoltageAlarm) then
+    lcd.drawText(d.MARGIN, d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN, SensorOne)
+  else
+    lcd.drawText(d.MARGIN, d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN, SensorOne, BLINK)
+  end
+  lcd.drawText(lcd.getLastPos(), d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN, ":")
+  lcd.drawNumber(lcd.getLastPos(), d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN,telemetry.VoltageMax/420)
+  lcd.drawText(lcd.getLastPos(), d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN, "S")
+end
+
 
 local function drawBasicScreen(d)
     lcd.clear()
@@ -89,16 +175,14 @@ end
 local function run(event)
   -- run is called periodically only when screen is visible
   if(is_telemetry) then
-    local initTelemetry, updateTelemetry, drawTelemetry = chunk()
-      drawBasicScreen(DISPLAY_CONST)
-      drawRSSI(DISPLAY_CONST)
-      drawTelemetry(telemetry, DISPLAY_CONST)
-      if (is_debug) then
-        lcd.drawText(LCD_W,0,getAvailableMemory(),SMLSIZE + RIGHT)
-      end
-      data = updateTelemetry(telemetry)
+    drawBasicScreen(DISPLAY_CONST)
+    drawRSSI(DISPLAY_CONST)
+    drawTelemetry(telemetry, data, DISPLAY_CONST)
+    if (is_debug) then
+      lcd.drawText(LCD_W,0,getAvailableMemory(),SMLSIZE + RIGHT)
+    end
     if (RunClock % 16 == 0) then
-      data = updateTelemetry(telemetry)
+      data = updateTelemetry(telemetry, data)
       RunClock = 0
     end
     RunClock = RunClock + 1
@@ -106,12 +190,10 @@ local function run(event)
     -- init
     drawBasicScreen(DISPLAY_CONST)
     drawStandbyScreen(DISPLAY_CONST)
-    chunk = loadScript(rxbt)
-    if (chunk) then
-      local initTelemetry, updateTelemetry, drawTelemetry = chunk()
-      telemetry = initTelemetry()
-      is_telemetry = telemetry.BatteryId > 0
-    end
+    local ModelInfo = model.getInfo()
+    telemetry, data  = initTelemetry()
+    data = updateTelemetry(telemetry, data)
+    is_telemetry = telemetry.BatteryId > 0
   end
 end
 
