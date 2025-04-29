@@ -73,18 +73,19 @@ local function initTelemetry()
   -- Telemetry values
 
   local AdjustedBatteryCells = battery_cells*100
-  local AdjustedVoltageRange = VoltageMax*AdjustedBatteryCells-VoltageOffset*AdjustedBatteryCells
+  local AdjustedVoltageMax = VoltageMax*AdjustedBatteryCells
+  local AdjustedVoltageOffset = VoltageOffset*AdjustedBatteryCells
+  local AdjustedVoltageRange = AdjustedVoltageMax-AdjustedVoltageOffset
 
   local telemetry = {
     BatteryId = getTelemetryId(SENSOR_ONE),
     BatteryLowId = getTelemetryId(SENSOR_ONE .. "-"),
     BatteryHighId = getTelemetryId(SENSOR_ONE .. "+"),
     VoltageAlarm = (VoltageAlarm-VoltageOffset)*AdjustedBatteryCells,
-    VoltageMax = VoltageMax*AdjustedBatteryCells,
-    VoltageOffset = VoltageOffset*AdjustedBatteryCells,
+    VoltageMax = AdjustedVoltageMax,
+    VoltageOffset = AdjustedVoltageOffset,
     VoltageRange = AdjustedVoltageRange
   }
-  --telemetry.VoltageRange = telemetry.VoltageMax-telemetry.VoltageOffset
   local data = { }
   return telemetry, data
 end
@@ -129,13 +130,9 @@ local function drawTelemetry(telemetry, data, d)
     else
       lcd.drawText(d.MARGIN, d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN, SENSOR_ONE, BLINK)
     end
-    lcd.drawText(lcd.getLastPos(), d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN, ":")
-    lcd.drawNumber(lcd.getLastPos(), d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN,battery_cells)
-    lcd.drawText(lcd.getLastPos(), d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN, "S")
+    lcd.drawText(lcd.getLastPos(), d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN, ":"..battery_cells.."S")
   else
-    lcd.drawText(d.MARGIN + 1, d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN, CELLS[battery_cells], SMLSIZE + INVERS)
-    lcd.drawText(lcd.getLastPos(), d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN, ":", SMLSIZE + INVERS)
-    lcd.drawText(lcd.getLastPos(), d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN, SENSOR_ONE, SMLSIZE + INVERS)
+    lcd.drawText(d.MARGIN + 1, d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN, CELLS[battery_cells]..":"..SENSOR_ONE, SMLSIZE + INVERS)
   end
 end
 
@@ -160,12 +157,10 @@ local function drawRSSI(d)
   local h = LCD_H-d.DBL_FONT_SIZE*2-d.MID_FONT_SIZE
   local rssi, alarm_low, alarm_crit = getRSSI()
   if rssi > alarm_crit then
-    lcd.drawText(d.TELEMETRY_W+d.INDENT+d.MARGIN*2, d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN, "RSSI")
-    lcd.drawText(lcd.getLastPos(), d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN, ":")
+    lcd.drawText(d.TELEMETRY_W+d.INDENT+d.MARGIN*2, d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN, "RSSI:")
     lcd.drawNumber(lcd.getLastPos(), d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN, rssi)
   elseif rssi > 0 then
-    lcd.drawText(d.TELEMETRY_W+d.INDENT+d.MARGIN*2, d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN, "RSSI", BLINK)
-    lcd.drawText(lcd.getLastPos(), d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN, ":",BLINK)
+    lcd.drawText(d.TELEMETRY_W+d.INDENT+d.MARGIN*2, d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN, "RSSI:", BLINK)
     lcd.drawNumber(lcd.getLastPos(), d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN, rssi,BLINK)
   else
     lcd.drawText(d.TELEMETRY_W+d.INDENT+d.MARGIN*2, d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN, "RSSI:00", SMLSIZE + INVERS)
@@ -186,9 +181,7 @@ local function drawRSSI(d)
 end
 
 local function drawStandbyScreen(d)
-  lcd.drawText(d.INDENT, d.TELEMETRY_H, "Waiting for ") 
-  lcd.drawText(lcd.getLastPos(), d.TELEMETRY_H, SENSOR_ONE) 
-  lcd.drawText(lcd.getLastPos(), d.TELEMETRY_H, "...") 
+  lcd.drawText(d.INDENT, d.TELEMETRY_H, "Waiting for "..SENSOR_ONE.."...") 
 end
 
 local function drawMenu(d)
