@@ -8,7 +8,7 @@
 
 -- Sensor name
 
-local SensorOne = "RxBt"
+local SENSOR_ONE = "RxBt"
 
 -- RSSI threshold values
 -- low and critical are read from the radio
@@ -27,8 +27,8 @@ local battery_cells = 2
 
 
 -- display constants
-local DISPLAY_CONST = { }
-DISPLAY_CONST = {
+
+local DISPLAY_CONST = {
   TELEMETRY_H = 38,
   TELEMETRY_W = 74,
   MARGIN = 2,
@@ -57,7 +57,7 @@ local function initTelemetry()
   local VoltageAlarm = 3.4
   local VoltageOffset = 3.0
 
-  -- Model cell count
+  -- Default model cell count
 
   if not is_edit then
     local OneCell = {
@@ -70,16 +70,17 @@ local function initTelemetry()
     end
   end
 
+  -- Telemetry values
+
   local telemetry = {
-    BatteryId = getTelemetryId(SensorOne),
-    BatteryLowId = getTelemetryId(SensorOne .. "-"),
-    BatteryHighId = getTelemetryId(SensorOne .. "+"),
+    BatteryId = getTelemetryId(SENSOR_ONE),
+    BatteryLowId = getTelemetryId(SENSOR_ONE .. "-"),
+    BatteryHighId = getTelemetryId(SENSOR_ONE .. "+"),
     VoltageAlarm = (VoltageAlarm-VoltageOffset)*battery_cells*100,
     VoltageMax = VoltageMax*battery_cells*100,
     VoltageOffset = VoltageOffset*battery_cells*100,
     VoltageRange = 100
   }
-
   telemetry.VoltageRange = telemetry.VoltageMax-telemetry.VoltageOffset
   local data = { }
   return telemetry, data
@@ -103,7 +104,7 @@ local function drawTelemetry(telemetry, data, d)
   local VoltageScaled
   if (data.BatteryVoltage*100 < telemetry.VoltageOffset ) then
     VoltageScaled = 0
-  elseif (data.BatteryVoltage*100 > telemetry.VoltageMax) then
+  elseif (data.BatteryVoltage*100 > telemetry.V) then
     VoltageScaled = telemetry.VoltageRange
   else
     VoltageScaled = data.BatteryVoltage*100 - telemetry.VoltageOffset
@@ -121,9 +122,9 @@ local function drawTelemetry(telemetry, data, d)
   lcd.drawNumber(lcd.getLastLeftPos()-d.MARGIN, d.DBL_FONT_SIZE+d.MARGIN, data.BatteryVoltage*10, DBLSIZE + PREC1 + RIGHT + INVERS)
   if VoltageScaled > 0 then
     if (VoltageScaled > telemetry.VoltageAlarm) then
-      lcd.drawText(d.MARGIN, d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN, SensorOne)
+      lcd.drawText(d.MARGIN, d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN, SENSOR_ONE)
     else
-      lcd.drawText(d.MARGIN, d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN, SensorOne, BLINK)
+      lcd.drawText(d.MARGIN, d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN, SENSOR_ONE, BLINK)
     end
     lcd.drawText(lcd.getLastPos(), d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN, ":")
     lcd.drawNumber(lcd.getLastPos(), d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN,battery_cells)
@@ -131,7 +132,7 @@ local function drawTelemetry(telemetry, data, d)
   else
     lcd.drawText(d.MARGIN + 1, d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN, CELLS[battery_cells], SMLSIZE + INVERS)
     lcd.drawText(lcd.getLastPos(), d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN, ":", SMLSIZE + INVERS)
-    lcd.drawText(lcd.getLastPos(), d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN, SensorOne, SMLSIZE + INVERS)
+    lcd.drawText(lcd.getLastPos(), d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN, SENSOR_ONE, SMLSIZE + INVERS)
   end
 end
 
@@ -183,7 +184,7 @@ end
 
 local function drawStandbyScreen(d)
   lcd.drawText(d.INDENT, d.TELEMETRY_H, "Waiting for ") 
-  lcd.drawText(lcd.getLastPos(), d.TELEMETRY_H, SensorOne) 
+  lcd.drawText(lcd.getLastPos(), d.TELEMETRY_H, SENSOR_ONE) 
   lcd.drawText(lcd.getLastPos(), d.TELEMETRY_H, "...") 
 end
 
