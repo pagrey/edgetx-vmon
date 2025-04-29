@@ -16,12 +16,15 @@ local SensorOne = "RxBt"
 local RSSI_HIGH = 89
 local RSSI_MED = 74
 
-local RunClock = 0
+local CELLS = {"1S","2S","3S"}
+
+local run_clock = 0
 local is_telemetry = false
 local is_debug = false
 local is_visible = false
 local is_edit = false
-local BatteryCells = 2
+local battery_cells = 2
+
 
 -- display constants
 local DISPLAY_CONST = { }
@@ -54,28 +57,29 @@ local function initTelemetry()
   local VoltageAlarm = 3.4
   local VoltageOffset = 3.0
 
-  -- Model cell count and battery thresholds
+  -- Model cell count
 
   if not is_edit then
     local OneCell = {
       DLG950 = true
     }
     if (OneCell[model.getInfo()['name']]) then
-      BatteryCells = 1
+      battery_cells = 1
     else
-      BatteryCells = 2
+      battery_cells = 2
     end
   end
-  local telemetry = { }
-  telemetry = {
+
+  local telemetry = {
     BatteryId = getTelemetryId(SensorOne),
     BatteryLowId = getTelemetryId(SensorOne .. "-"),
     BatteryHighId = getTelemetryId(SensorOne .. "+"),
-    VoltageAlarm = (VoltageAlarm-VoltageOffset)*BatteryCells*100,
-    VoltageMax = VoltageMax*BatteryCells*100,
-    VoltageOffset = VoltageOffset*BatteryCells*100,
+    VoltageAlarm = (VoltageAlarm-VoltageOffset)*battery_cells*100,
+    VoltageMax = VoltageMax*battery_cells*100,
+    VoltageOffset = VoltageOffset*battery_cells*100,
     VoltageRange = 100
   }
+
   telemetry.VoltageRange = telemetry.VoltageMax-telemetry.VoltageOffset
   local data = { }
   return telemetry, data
@@ -105,7 +109,7 @@ local function drawTelemetry(telemetry, data, d)
     VoltageScaled = data.BatteryVoltage*100 - telemetry.VoltageOffset
   end
   local BatteryBar = math.floor(SEGMENTS * VoltageScaled / telemetry.VoltageRange)
-  -- start drawing
+  -- Start drawing
   lcd.drawFilledRectangle(d.MARGIN, d.DBL_FONT_SIZE, d.TELEMETRY_W, d.TELEMETRY_H)
   lcd.drawFilledRectangle(d.MARGIN+d.MARGIN, d.DBL_FONT_SIZE+d.DBL_FONT_SIZE+d.MARGIN*2, d.TELEMETRY_W-d.MARGIN*2-BUTTON_W, d.TELEMETRY_H-d.DBL_FONT_SIZE-d.MARGIN*3)
   lcd.drawFilledRectangle(d.MARGIN+d.TELEMETRY_W-d.MARGIN-BUTTON_W, d.DBL_FONT_SIZE+d.DBL_FONT_SIZE+d.MARGIN+BUTTON_H, BUTTON_W, BUTTON_H)
@@ -122,16 +126,17 @@ local function drawTelemetry(telemetry, data, d)
       lcd.drawText(d.MARGIN, d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN, SensorOne, BLINK)
     end
     lcd.drawText(lcd.getLastPos(), d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN, ":")
-    --lcd.drawNumber(lcd.getLastPos(), d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN,telemetry.VoltageMax/420)
-    lcd.drawNumber(lcd.getLastPos(), d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN,BatteryCells)
+    lcd.drawNumber(lcd.getLastPos(), d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN,battery_cells)
     lcd.drawText(lcd.getLastPos(), d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN, "S")
   else
-    lcd.drawText(d.MARGIN + 1, d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN, SensorOne, SMLSIZE + INVERS)
-    lcd.drawText(lcd.getLastPos(), d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN, ":0.0V", SMLSIZE + INVERS)
+    lcd.drawText(d.MARGIN + 1, d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN, CELLS[battery_cells], SMLSIZE + INVERS)
+    lcd.drawText(lcd.getLastPos(), d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN, ":", SMLSIZE + INVERS)
+    lcd.drawText(lcd.getLastPos(), d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN, SensorOne, SMLSIZE + INVERS)
   end
 end
 
 local function drawBasicScreen(d)
+  lcd.clear()
   -- Draw title and background
   lcd.drawText(d.TITLE_INDENT, 0, d.MODEL_NAME, DBLSIZE)
   -- Draw time
@@ -177,13 +182,13 @@ local function drawRSSI(d)
 end
 
 local function drawStandbyScreen(d)
-  lcd.drawText(d.INDENT, d.TELEMETRY_H, SensorOne) 
-  lcd.drawText(lcd.getLastPos(), d.TELEMETRY_H, " not found...") 
+  lcd.drawText(d.INDENT, d.TELEMETRY_H, "Waiting for ") 
+  lcd.drawText(lcd.getLastPos(), d.TELEMETRY_H, SensorOne) 
+  lcd.drawText(lcd.getLastPos(), d.TELEMETRY_H, "...") 
 end
 
 local function drawMenu(d)
-  local cells = {"1S","2S","3S"}
-  lcd.drawCombobox(d.INDENT*3,d.INDENT*3,d.TELEMETRY_W,cells,BatteryCells-1,BLINK)
+  lcd.drawCombobox(d.INDENT*3,d.INDENT*3,d.TELEMETRY_W,CELLS,battery_cells-1,BLINK)
 end
 
 local function run(event)
@@ -202,20 +207,17 @@ local function run(event)
 	end
       elseif event == EVT_VIRTUAL_INC then
 	if is_visible then
-	  BatteryCells = (BatteryCells + 1)
-	  if BatteryCells > 3 then BatteryCells = 1 end
+	  battery_cells = battery_cells % #CELLS + 1
 	end
       elseif event == EVT_VIRTUAL_DEC then
 	if is_visible then
-	  BatteryCells = (BatteryCells - 1)
-	  if BatteryCells < 1 then BatteryCells = 3 end
+	  battery_cells = (battery_cells - 2) % #CELLS + 1
 	end
       elseif event == EVT_VIRTUAL_EXIT then
 	is_visible = false
       end
     end
     if(is_telemetry) then
-      lcd.clear()
       drawBasicScreen(DISPLAY_CONST)
       drawRSSI(DISPLAY_CONST)
       drawTelemetry(telemetry, data, DISPLAY_CONST)
@@ -225,20 +227,20 @@ local function run(event)
       if (is_visible) then
 	drawMenu(DISPLAY_CONST)
       end
-      if (RunClock % 16 == 0) then
+      if (run_clock % 16 == 0) then
 	if is_edit then 
 	  telemetry, data  = initTelemetry()
 	  data = updateTelemetry(telemetry, data) 
 	  is_edit = false
-	  RunClock = 0
+	  run_clock = 0
 	else
 	  data = updateTelemetry(telemetry, data)
-	  RunClock = 0
+	  run_clock = 0
 	end
       end
-      RunClock = RunClock + 1
+      run_clock = run_clock + 1
     else
-      -- init
+      -- init telemetry
       drawBasicScreen(DISPLAY_CONST)
       drawStandbyScreen(DISPLAY_CONST)
       telemetry, data  = initTelemetry()
