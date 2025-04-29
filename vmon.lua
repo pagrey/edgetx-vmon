@@ -36,8 +36,7 @@ local is_debug = false
 local is_visible = false
 local is_edit = false
 
-
--- display constants
+-- Display constants
 
 local DISPLAY_CONST = {
   TELEMETRY_H = 38,
@@ -62,13 +61,13 @@ end
 
 local function initTelemetry()
 
-  -- Battery parameters
+-- Battery parameters
 
   local VoltageMax = 4.2
   local VoltageAlarm = 3.4
   local VoltageOffset = 3.0
 
-  -- Custom default battery cell count for models
+-- Custom default battery cell count for models
 
   if not is_edit then
     local model_cell_count = ModelCellCount[model.getInfo()['name']]
@@ -77,7 +76,7 @@ local function initTelemetry()
     end
   end
 
-  -- Telemetry values
+-- Telemetry values
 
   local AdjustedBatteryCells = battery_cells*100
   local AdjustedVoltageMax = VoltageMax*AdjustedBatteryCells
@@ -115,7 +114,7 @@ local function drawTelemetry(telemetry, data, d)
   local VoltageScaled
   if (data.BatteryVoltage*100 < telemetry.VoltageOffset ) then
     VoltageScaled = 0
-  elseif (data.BatteryVoltage*100 > telemetry.V) then
+  elseif (data.BatteryVoltage*100 > telemetry.VoltageMax) then
     VoltageScaled = telemetry.VoltageRange
   else
     VoltageScaled = data.BatteryVoltage*100 - telemetry.VoltageOffset
@@ -244,7 +243,7 @@ local function run(event)
       end
       run_clock = run_clock + 1
     else
-      -- init telemetry
+      -- Init telemetry
       drawBasicScreen(DISPLAY_CONST)
       drawStandbyScreen(DISPLAY_CONST)
       telemetry, data  = initTelemetry()
