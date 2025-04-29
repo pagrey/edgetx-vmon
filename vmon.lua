@@ -72,16 +72,19 @@ local function initTelemetry()
 
   -- Telemetry values
 
+  local AdjustedBatteryCells = battery_cells*100
+  local AdjustedVoltageRange = VoltageMax*AdjustedBatteryCells-VoltageOffset*AdjustedBatteryCells
+
   local telemetry = {
     BatteryId = getTelemetryId(SENSOR_ONE),
     BatteryLowId = getTelemetryId(SENSOR_ONE .. "-"),
     BatteryHighId = getTelemetryId(SENSOR_ONE .. "+"),
-    VoltageAlarm = (VoltageAlarm-VoltageOffset)*battery_cells*100,
-    VoltageMax = VoltageMax*battery_cells*100,
-    VoltageOffset = VoltageOffset*battery_cells*100,
-    VoltageRange = 100
+    VoltageAlarm = (VoltageAlarm-VoltageOffset)*AdjustedBatteryCells,
+    VoltageMax = VoltageMax*AdjustedBatteryCells,
+    VoltageOffset = VoltageOffset*AdjustedBatteryCells,
+    VoltageRange = AdjustedVoltageRange
   }
-  telemetry.VoltageRange = telemetry.VoltageMax-telemetry.VoltageOffset
+  --telemetry.VoltageRange = telemetry.VoltageMax-telemetry.VoltageOffset
   local data = { }
   return telemetry, data
 end
