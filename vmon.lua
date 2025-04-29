@@ -35,7 +35,9 @@ DISPLAY_CONST = {
   DBL_FONT_SIZE = 16,
   SML_FONT_SIZE = 8,
   MID_FONT_SIZE = 12,
-  RSSI_W = 38
+  RSSI_W = 38,
+  MODEL_NAME = model.getInfo()['name'],
+  TIMER_NAME = model.getTimer(0).name
 }
 
 local function getTelemetryId(name)
@@ -113,29 +115,32 @@ local function drawTelemetry(telemetry, data, d)
   end
   lcd.drawText(d.INDENT+d.TELEMETRY_W-d.MARGIN*2, d.DBL_FONT_SIZE+d.MARGIN, "V", DBLSIZE + RIGHT + INVERS)
   lcd.drawNumber(lcd.getLastLeftPos()-d.MARGIN, d.DBL_FONT_SIZE+d.MARGIN, data.BatteryVoltage*10, DBLSIZE + PREC1 + RIGHT + INVERS)
-  if (VoltageScaled > telemetry.VoltageAlarm) then
-    lcd.drawText(d.MARGIN, d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN, SensorOne)
+  if VoltageScaled > 0 then
+    if (VoltageScaled > telemetry.VoltageAlarm) then
+      lcd.drawText(d.MARGIN, d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN, SensorOne)
+    else
+      lcd.drawText(d.MARGIN, d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN, SensorOne, BLINK)
+    end
+    lcd.drawText(lcd.getLastPos(), d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN, ":")
+    --lcd.drawNumber(lcd.getLastPos(), d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN,telemetry.VoltageMax/420)
+    lcd.drawNumber(lcd.getLastPos(), d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN,BatteryCells)
+    lcd.drawText(lcd.getLastPos(), d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN, "S")
   else
-    lcd.drawText(d.MARGIN, d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN, SensorOne, BLINK)
+    lcd.drawText(d.MARGIN + 1, d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN, SensorOne, SMLSIZE + INVERS)
+    lcd.drawText(lcd.getLastPos(), d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN, ":0.0V", SMLSIZE + INVERS)
   end
-  lcd.drawText(lcd.getLastPos(), d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN, ":")
-  --lcd.drawNumber(lcd.getLastPos(), d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN,telemetry.VoltageMax/420)
-  lcd.drawNumber(lcd.getLastPos(), d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN,BatteryCells)
-  lcd.drawText(lcd.getLastPos(), d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN, "S")
 end
-
 
 local function drawBasicScreen(d)
   -- Draw title and background
-  lcd.drawText(d.TITLE_INDENT, 0, model.getInfo()['name'], DBLSIZE)
+  lcd.drawText(d.TITLE_INDENT, 0, d.MODEL_NAME, DBLSIZE)
   -- Draw time
   lcd.drawText(d.TIME_INDENT, LCD_H-d.SML_FONT_SIZE+1, string.format("%02d", getDateTime()['hour']))
   lcd.drawText(lcd.getLastPos(), LCD_H-d.SML_FONT_SIZE+1, ":", BLINK)
   lcd.drawText(lcd.getLastPos(), LCD_H-d.SML_FONT_SIZE+1, string.format("%02d", getDateTime()['min']))
   -- Draw timer
-  local timer_name = model.getTimer(0).name
-  if (timer_name ~= "") then
-    --lcd.drawText(LCD_W-d.INDENT-d.MARGIN, d.DBL_FONT_SIZE-d.SML_FONT_SIZE+d.MARGIN, timer_name, SMLSIZE + RIGHT)
+  if (d.TIMER_NAME ~= "") then
+    --lcd.drawText(LCD_W-d.INDENT-d.MARGIN, d.DBL_FONT_SIZE-d.SML_FONT_SIZE+d.MARGIN, d.TIMER_NAME, SMLSIZE + RIGHT)
     lcd.drawTimer(d.TELEMETRY_W+d.INDENT+d.MARGIN*2, d.DBL_FONT_SIZE+1, model.getTimer(0).value, DBLSIZE)
   end
 end
@@ -149,10 +154,12 @@ local function drawRSSI(d)
     lcd.drawText(d.TELEMETRY_W+d.INDENT+d.MARGIN*2, d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN, "RSSI")
     lcd.drawText(lcd.getLastPos(), d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN, ":")
     lcd.drawNumber(lcd.getLastPos(), d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN, rssi)
-  else
+  elseif rssi > 0 then
     lcd.drawText(d.TELEMETRY_W+d.INDENT+d.MARGIN*2, d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN, "RSSI", BLINK)
     lcd.drawText(lcd.getLastPos(), d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN, ":",BLINK)
     lcd.drawNumber(lcd.getLastPos(), d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN, rssi,BLINK)
+  else
+    lcd.drawText(d.TELEMETRY_W+d.INDENT+d.MARGIN*2, d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN, "RSSI:00", SMLSIZE + INVERS)
   end
   if rssi > RSSI_HIGH then
     SignalBars = 3
@@ -223,6 +230,7 @@ local function run(event)
 	  telemetry, data  = initTelemetry()
 	  data = updateTelemetry(telemetry, data) 
 	  is_edit = false
+	  RunClock = 0
 	else
 	  data = updateTelemetry(telemetry, data)
 	  RunClock = 0
