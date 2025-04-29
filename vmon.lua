@@ -16,14 +16,25 @@ local SENSOR_ONE = "RxBt"
 local RSSI_HIGH = 89
 local RSSI_MED = 74
 
+-- Cell count range
+
 local CELLS = {"1S","2S","3S"}
 
+-- Cell count for known models
+
+local ModelCellCount = {
+  DLG950 = 1,
+  Radian = 3
+}
+
+-- Default cell count
+
+local battery_cells = 2
 local run_clock = 0
 local is_telemetry = false
 local is_debug = false
 local is_visible = false
 local is_edit = false
-local battery_cells = 2
 
 
 -- display constants
@@ -57,16 +68,12 @@ local function initTelemetry()
   local VoltageAlarm = 3.4
   local VoltageOffset = 3.0
 
-  -- Default model cell count
+  -- Custom default battery cell count for models
 
   if not is_edit then
-    local OneCell = {
-      DLG950 = true
-    }
-    if (OneCell[model.getInfo()['name']]) then
-      battery_cells = 1
-    else
-      battery_cells = 2
+    local model_cell_count = ModelCellCount[model.getInfo()['name']]
+    if model_cell_count then
+      battery_cells = model_cell_count
     end
   end
 
