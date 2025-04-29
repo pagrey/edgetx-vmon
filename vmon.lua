@@ -19,6 +19,9 @@ local RSSI_MED = 74
 local RunClock = 0
 local is_telemetry = false
 local is_debug = false
+local is_visible = false
+local is_edit = false
+local BatteryCells = 2
 
 -- display constants
 local DISPLAY_CONST = { }
@@ -32,37 +35,37 @@ DISPLAY_CONST = {
   DBL_FONT_SIZE = 16,
   SML_FONT_SIZE = 8,
   MID_FONT_SIZE = 12,
-  RSSI_W = 38
+  RSSI_W = 38,
+  MODEL_NAME = model.getInfo()['name'],
+  TIMER_NAME = model.getTimer(0).name
 }
 
 local function getTelemetryId(name)
- field = getFieldInfo(name)
- if getFieldInfo(name) then return field.id end
+  field = getFieldInfo(name)
+  if getFieldInfo(name) then return field.id end
   return -1
 end
 
 local function initTelemetry()
 
--- Battery parameters
+  -- Battery parameters
 
-  local BatteryCells, VoltageAlarm, VoltageOffset
   local VoltageMax = 4.2
+  local VoltageAlarm = 3.4
+  local VoltageOffset = 3.0
 
--- Model cell count and battery thresholds
+  -- Model cell count and battery thresholds
 
-  local OneCell = {
-    DLG950 = true
-  }
-  local ModelInfo = model.getInfo()
-  if (OneCell[ModelInfo.name]) then
-    BatteryCells = 1
-    VoltageAlarm = 3.4
-    VoltageOffset = 3.0
-  else
-    BatteryCells = 2
-    VoltageAlarm = 3.4
-    VoltageOffset = 3.0
-  end 
+  if not is_edit then
+    local OneCell = {
+      DLG950 = true
+    }
+    if (OneCell[model.getInfo()['name']]) then
+      BatteryCells = 1
+    else
+      BatteryCells = 2
+    end
+  end
   local telemetry = { }
   telemetry = {
     BatteryId = getTelemetryId(SensorOne),
@@ -88,55 +91,58 @@ local function updateTelemetry(telemetry, data)
 end
 
 local function drawTelemetry(telemetry, data, d)
-  local BUTTON_W = 3 
+  local BUTTON_W = 3
   local BUTTON_H = 7
   local SEGMENTS = 9
-  local BatteryWidth = d.TELEMETRY_W-d.MARGIN*3-BUTTON_W 
+  local BatteryWidth = d.TELEMETRY_W-d.MARGIN*3-BUTTON_W
   local SegmentWidth = math.floor(BatteryWidth/SEGMENTS)
   local VoltageScaled
   if (data.BatteryVoltage*100 < telemetry.VoltageOffset ) then
     VoltageScaled = 0
   elseif (data.BatteryVoltage*100 > telemetry.VoltageMax) then
     VoltageScaled = telemetry.VoltageRange
-  else               
+  else
     VoltageScaled = data.BatteryVoltage*100 - telemetry.VoltageOffset
-  end  
-  local BatteryBar = math.floor(SEGMENTS * VoltageScaled / telemetry.VoltageRange) 
+  end
+  local BatteryBar = math.floor(SEGMENTS * VoltageScaled / telemetry.VoltageRange)
   -- start drawing
   lcd.drawFilledRectangle(d.MARGIN, d.DBL_FONT_SIZE, d.TELEMETRY_W, d.TELEMETRY_H)
-  lcd.drawFilledRectangle(d.MARGIN+d.MARGIN, d.DBL_FONT_SIZE+d.DBL_FONT_SIZE+d.MARGIN*2, d.TELEMETRY_W-d.MARGIN*2-BUTTON_W, d.TELEMETRY_H-d.DBL_FONT_SIZE-d.MARGIN*3)    
+  lcd.drawFilledRectangle(d.MARGIN+d.MARGIN, d.DBL_FONT_SIZE+d.DBL_FONT_SIZE+d.MARGIN*2, d.TELEMETRY_W-d.MARGIN*2-BUTTON_W, d.TELEMETRY_H-d.DBL_FONT_SIZE-d.MARGIN*3)
   lcd.drawFilledRectangle(d.MARGIN+d.TELEMETRY_W-d.MARGIN-BUTTON_W, d.DBL_FONT_SIZE+d.DBL_FONT_SIZE+d.MARGIN+BUTTON_H, BUTTON_W, BUTTON_H)
   while BatteryBar > 0 do
-   lcd.drawFilledRectangle(d.MARGIN*3+(BatteryBar-1)*(SegmentWidth), d.DBL_FONT_SIZE+d.DBL_FONT_SIZE+d.MARGIN*3, SegmentWidth-d.MARGIN, d.TELEMETRY_H-d.DBL_FONT_SIZE-d.MARGIN*5)
-   BatteryBar = BatteryBar - 1
-  end 
+    lcd.drawFilledRectangle(d.MARGIN*3+(BatteryBar-1)*(SegmentWidth), d.DBL_FONT_SIZE+d.DBL_FONT_SIZE+d.MARGIN*3, SegmentWidth-d.MARGIN, d.TELEMETRY_H-d.DBL_FONT_SIZE-d.MARGIN*5)
+    BatteryBar = BatteryBar - 1
+  end
   lcd.drawText(d.INDENT+d.TELEMETRY_W-d.MARGIN*2, d.DBL_FONT_SIZE+d.MARGIN, "V", DBLSIZE + RIGHT + INVERS)
   lcd.drawNumber(lcd.getLastLeftPos()-d.MARGIN, d.DBL_FONT_SIZE+d.MARGIN, data.BatteryVoltage*10, DBLSIZE + PREC1 + RIGHT + INVERS)
-  if (VoltageScaled > telemetry.VoltageAlarm) then
-    lcd.drawText(d.MARGIN, d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN, SensorOne)
+  if VoltageScaled > 0 then
+    if (VoltageScaled > telemetry.VoltageAlarm) then
+      lcd.drawText(d.MARGIN, d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN, SensorOne)
+    else
+      lcd.drawText(d.MARGIN, d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN, SensorOne, BLINK)
+    end
+    lcd.drawText(lcd.getLastPos(), d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN, ":")
+    --lcd.drawNumber(lcd.getLastPos(), d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN,telemetry.VoltageMax/420)
+    lcd.drawNumber(lcd.getLastPos(), d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN,BatteryCells)
+    lcd.drawText(lcd.getLastPos(), d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN, "S")
   else
-    lcd.drawText(d.MARGIN, d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN, SensorOne, BLINK)
+    lcd.drawText(d.MARGIN + 1, d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN, SensorOne, SMLSIZE + INVERS)
+    lcd.drawText(lcd.getLastPos(), d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN, ":0.0V", SMLSIZE + INVERS)
   end
-  lcd.drawText(lcd.getLastPos(), d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN, ":")
-  lcd.drawNumber(lcd.getLastPos(), d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN,telemetry.VoltageMax/420)
-  lcd.drawText(lcd.getLastPos(), d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN, "S")
 end
 
-
 local function drawBasicScreen(d)
-    lcd.clear()
-    -- Draw title and background
-    lcd.drawText(d.TITLE_INDENT, 0, model.getInfo()['name'], DBLSIZE)
-    -- Draw time
-    lcd.drawText(d.TIME_INDENT, LCD_H-d.SML_FONT_SIZE+1, string.format("%02d", getDateTime()['hour']))
-    lcd.drawText(lcd.getLastPos(), LCD_H-d.SML_FONT_SIZE+1, ":", BLINK)
-    lcd.drawText(lcd.getLastPos(), LCD_H-d.SML_FONT_SIZE+1, string.format("%02d", getDateTime()['min']))
-    -- Draw timer
-    local timer_name = model.getTimer(0).name
-    if (timer_name ~= "") then
-      --lcd.drawText(LCD_W-d.INDENT-d.MARGIN, d.DBL_FONT_SIZE-d.SML_FONT_SIZE+d.MARGIN, timer_name, SMLSIZE + RIGHT)
-      lcd.drawTimer(d.TELEMETRY_W+d.INDENT+d.MARGIN*2, d.DBL_FONT_SIZE+1, model.getTimer(0).value, DBLSIZE)
-    end
+  -- Draw title and background
+  lcd.drawText(d.TITLE_INDENT, 0, d.MODEL_NAME, DBLSIZE)
+  -- Draw time
+  lcd.drawText(d.TIME_INDENT, LCD_H-d.SML_FONT_SIZE+1, string.format("%02d", getDateTime()['hour']))
+  lcd.drawText(lcd.getLastPos(), LCD_H-d.SML_FONT_SIZE+1, ":", BLINK)
+  lcd.drawText(lcd.getLastPos(), LCD_H-d.SML_FONT_SIZE+1, string.format("%02d", getDateTime()['min']))
+  -- Draw timer
+  if (d.TIMER_NAME ~= "") then
+    --lcd.drawText(LCD_W-d.INDENT-d.MARGIN, d.DBL_FONT_SIZE-d.SML_FONT_SIZE+d.MARGIN, d.TIMER_NAME, SMLSIZE + RIGHT)
+    lcd.drawTimer(d.TELEMETRY_W+d.INDENT+d.MARGIN*2, d.DBL_FONT_SIZE+1, model.getTimer(0).value, DBLSIZE)
+  end
 end
 
 local function drawRSSI(d)
@@ -148,10 +154,12 @@ local function drawRSSI(d)
     lcd.drawText(d.TELEMETRY_W+d.INDENT+d.MARGIN*2, d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN, "RSSI")
     lcd.drawText(lcd.getLastPos(), d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN, ":")
     lcd.drawNumber(lcd.getLastPos(), d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN, rssi)
-  else
+  elseif rssi > 0 then
     lcd.drawText(d.TELEMETRY_W+d.INDENT+d.MARGIN*2, d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN, "RSSI", BLINK)
     lcd.drawText(lcd.getLastPos(), d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN, ":",BLINK)
     lcd.drawNumber(lcd.getLastPos(), d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN, rssi,BLINK)
+  else
+    lcd.drawText(d.TELEMETRY_W+d.INDENT+d.MARGIN*2, d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN, "RSSI:00", SMLSIZE + INVERS)
   end
   if rssi > RSSI_HIGH then
     SignalBars = 3
@@ -169,31 +177,74 @@ local function drawRSSI(d)
 end
 
 local function drawStandbyScreen(d)
-    lcd.drawText(d.INDENT, d.TELEMETRY_H, "Waiting for telemetry...")
+  lcd.drawText(d.INDENT, d.TELEMETRY_H, SensorOne) 
+  lcd.drawText(lcd.getLastPos(), d.TELEMETRY_H, " not found...") 
+end
+
+local function drawMenu(d)
+  local cells = {"1S","2S","3S"}
+  lcd.drawCombobox(d.INDENT*3,d.INDENT*3,d.TELEMETRY_W,cells,BatteryCells-1,BLINK)
 end
 
 local function run(event)
   -- run is called periodically only when screen is visible
-  if(is_telemetry) then
-    drawBasicScreen(DISPLAY_CONST)
-    drawRSSI(DISPLAY_CONST)
-    drawTelemetry(telemetry, data, DISPLAY_CONST)
-    if (is_debug) then
-      lcd.drawText(LCD_W,0,getAvailableMemory(),SMLSIZE + RIGHT)
-    end
-    if (RunClock % 16 == 0) then
-      data = updateTelemetry(telemetry, data)
-      RunClock = 0
-    end
-    RunClock = RunClock + 1
+  if event == nil then
+    error("Cannot be run as a widget script!")
+    return 2
   else
-    -- init
-    drawBasicScreen(DISPLAY_CONST)
-    drawStandbyScreen(DISPLAY_CONST)
-    local ModelInfo = model.getInfo()
-    telemetry, data  = initTelemetry()
-    data = updateTelemetry(telemetry, data)
-    is_telemetry = telemetry.BatteryId > 0
+    if event ~= 0 then
+      if event == EVT_VIRTUAL_ENTER then
+	if is_visible then
+	  is_visible = false
+	  is_edit = true
+	else
+	  is_visible = true
+	end
+      elseif event == EVT_VIRTUAL_INC then
+	if is_visible then
+	  BatteryCells = (BatteryCells + 1)
+	  if BatteryCells > 3 then BatteryCells = 1 end
+	end
+      elseif event == EVT_VIRTUAL_DEC then
+	if is_visible then
+	  BatteryCells = (BatteryCells - 1)
+	  if BatteryCells < 1 then BatteryCells = 3 end
+	end
+      elseif event == EVT_VIRTUAL_EXIT then
+	is_visible = false
+      end
+    end
+    if(is_telemetry) then
+      lcd.clear()
+      drawBasicScreen(DISPLAY_CONST)
+      drawRSSI(DISPLAY_CONST)
+      drawTelemetry(telemetry, data, DISPLAY_CONST)
+      if (is_debug) then
+	lcd.drawText(LCD_W,0,getAvailableMemory(),SMLSIZE + RIGHT)
+      end
+      if (is_visible) then
+	drawMenu(DISPLAY_CONST)
+      end
+      if (RunClock % 16 == 0) then
+	if is_edit then 
+	  telemetry, data  = initTelemetry()
+	  data = updateTelemetry(telemetry, data) 
+	  is_edit = false
+	  RunClock = 0
+	else
+	  data = updateTelemetry(telemetry, data)
+	  RunClock = 0
+	end
+      end
+      RunClock = RunClock + 1
+    else
+      -- init
+      drawBasicScreen(DISPLAY_CONST)
+      drawStandbyScreen(DISPLAY_CONST)
+      telemetry, data  = initTelemetry()
+      data = updateTelemetry(telemetry, data)
+      is_telemetry = telemetry.BatteryId > 0
+    end
   end
 end
 
