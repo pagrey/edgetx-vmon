@@ -1,7 +1,7 @@
--- OpenTX Lua script
+-- EdgeTX Lua script
 -- Battery and RSS TELEMETRY
 -- Place this file in SD Card copy on your computer > /SCRIPTS/TELEMETRY/
--- Designed for 128x64 B&W displays like the Radiomaster Boxer
+-- Designed for 128x64 B&W displays
 --
 -- https://github.com/pagrey
 --
@@ -30,11 +30,12 @@ local ModelCellCount = {
 -- Default cell count
 
 local battery_cells = 2
+
 local run_clock = 0
 local is_telemetry = false
 local is_debug = false
-local is_visible = false
-local is_edit = false
+local is_menu_visible = false
+local is_value_changed = false
 
 -- Display constants
 
@@ -69,7 +70,7 @@ local function initTelemetry()
 
 -- Custom default battery cell count for models
 
-  if not is_edit then
+  if not is_value_changed then
     local model_cell_count = ModelCellCount[model.getInfo()['name']]
     if model_cell_count then
       battery_cells = model_cell_count
@@ -202,22 +203,22 @@ local function run(event)
   else
     if event ~= 0 then
       if event == EVT_VIRTUAL_ENTER then
-	if is_visible then
-	  is_visible = false
-	  is_edit = true
+	if is_menu_visible then
+	  is_menu_visible = false
+	  is_value_changed = true
 	else
-	  is_visible = true
+	  is_menu_visible = true
 	end
       elseif event == EVT_VIRTUAL_INC then
-	if is_visible then
+	if is_menu_visible then
 	  battery_cells = battery_cells % #CELLS + 1
 	end
       elseif event == EVT_VIRTUAL_DEC then
-	if is_visible then
+	if is_menu_visible then
 	  battery_cells = (battery_cells - 2) % #CELLS + 1
 	end
       elseif event == EVT_VIRTUAL_EXIT then
-	is_visible = false
+	is_menu_visible = false
       end
     end
     if(is_telemetry) then
@@ -227,14 +228,14 @@ local function run(event)
       if (is_debug) then
 	lcd.drawText(LCD_W,0,getAvailableMemory(),SMLSIZE + RIGHT)
       end
-      if (is_visible) then
+      if (is_menu_visible) then
 	drawMenu(DISPLAY_CONST)
       end
       if (run_clock % 16 == 0) then
-	if is_edit then 
+	if is_value_changed then 
 	  telemetry, data  = initTelemetry()
 	  data = updateTelemetry(telemetry, data) 
-	  is_edit = false
+	  is_value_changed = false
 	  run_clock = 0
 	else
 	  data = updateTelemetry(telemetry, data)
