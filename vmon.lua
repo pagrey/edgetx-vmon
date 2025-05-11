@@ -14,7 +14,8 @@ local RSSI_MED = 74
 
 -- Cell count range
 
-local CELLS = {"1S","2S","3S"}
+local CELLS = {"1S","2S","3S","4S"}
+local battery_cells = 2
 local SENSORS = {"RxBt","A1"}
 local active_sensor = 1
 
@@ -25,9 +26,6 @@ local ModelCellCount = {
   Radian = 3
 }
 
--- Default cell count
-
-local battery_cells = 2
 local battery_cache
 local sensor_cache
 
@@ -38,6 +36,7 @@ local is_menu_visible = false
 local is_cells_changed = false
 local is_cells_edit = false
 local is_sensor_edit = false
+local is_sensor_changed = false
 local is_item_one = true
 
 -- Display constants
@@ -195,8 +194,8 @@ local function drawStandbyScreen(d)
 end
 
 local function drawMenu(d)
-  lcd.drawFilledRectangle(d.INDENT*2,d.INDENT*2,d.TELEMETRY_W+d.INDENT*4,d.DBL_FONT_SIZE*3,ERASE)
-  lcd.drawRectangle(d.INDENT*2,d.INDENT*2,d.TELEMETRY_W+d.INDENT*4,d.DBL_FONT_SIZE*3)
+  lcd.drawFilledRectangle(d.INDENT*2,d.INDENT*2,d.TELEMETRY_W+d.INDENT*4,d.SML_FONT_SIZE*2+d.MID_FONT_SIZE*2+d.INDENT*3,ERASE)
+  lcd.drawRectangle(d.INDENT*2,d.INDENT*2,d.TELEMETRY_W+d.INDENT*4,d.SML_FONT_SIZE*2+d.MID_FONT_SIZE*2+d.INDENT*3)
   lcd.drawText(d.INDENT*3,d.INDENT*3,"Battery Cells",SMLSIZE)
   lcd.drawText(d.INDENT*3,d.INDENT*3+d.SML_FONT_SIZE+d.MID_FONT_SIZE,"Sensor Name",SMLSIZE)
 
@@ -237,6 +236,7 @@ local function run(event)
           elseif is_sensor_edit then
             active_sensor = sensor_cache
 	    is_menu_visible = false
+	    is_sensor_changed = true
             is_sensor_edit = false
           else
             if is_item_one then
@@ -283,10 +283,11 @@ local function run(event)
 	drawMenu(DISPLAY_CONST)
       end
       if (run_clock % 16 == 0) then
-	if is_cells_changed then 
+	if is_cells_changed or is_sensor_changed then 
 	  telemetry, data  = initTelemetry()
 	  data = updateTelemetry(telemetry, data) 
 	  is_cells_changed = false
+	  is_sensor_changed = false
 	  run_clock = 0
 	else
 	  data = updateTelemetry(telemetry, data)
