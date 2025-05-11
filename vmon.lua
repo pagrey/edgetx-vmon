@@ -6,10 +6,6 @@
 -- https://github.com/pagrey
 --
 
--- Sensor name
-
-local SENSOR_ONE = "RxBt"
-
 -- RSSI threshold values
 -- low and critical are read from the radio
 
@@ -19,6 +15,8 @@ local RSSI_MED = 74
 -- Cell count range
 
 local CELLS = {"1S","2S","3S"}
+local SENSORS = {"RxBt","A1"}
+local active_sensor = 1
 
 -- Cell count for known models
 
@@ -31,13 +29,16 @@ local ModelCellCount = {
 
 local battery_cells = 2
 local battery_cache
+local sensor_cache
 
 local run_clock = 0
 local is_telemetry = false
 local is_debug = false
 local is_menu_visible = false
-local is_value_changed = false
+local is_cells_changed = false
 local is_cells_edit = false
+local is_sensor_edit = false
+local is_item_one = true
 
 -- Display constants
 
@@ -72,7 +73,7 @@ local function initTelemetry()
 
 -- Custom default battery cell count for models
 
-  if not is_value_changed then
+  if not is_cells_changed then
     local model_cell_count = ModelCellCount[model.getInfo()['name']]
     if model_cell_count then
       battery_cells = model_cell_count
@@ -87,9 +88,9 @@ local function initTelemetry()
   local AdjustedVoltageRange = AdjustedVoltageMax-AdjustedVoltageOffset
 
   local telemetry = {
-    BatteryId = getTelemetryId(SENSOR_ONE),
-    BatteryLowId = getTelemetryId(SENSOR_ONE .. "-"),
-    BatteryHighId = getTelemetryId(SENSOR_ONE .. "+"),
+    BatteryId = getTelemetryId(SENSORS[active_sensor]),
+    BatteryLowId = getTelemetryId(SENSORS[active_sensor] .. "-"),
+    BatteryHighId = getTelemetryId(SENSORS[active_sensor] .. "+"),
     VoltageAlarm = (VoltageAlarm-VoltageOffset)*AdjustedBatteryCells,
     VoltageMax = AdjustedVoltageMax,
     VoltageOffset = AdjustedVoltageOffset,
@@ -135,13 +136,13 @@ local function drawTelemetry(telemetry, data, d)
   lcd.drawNumber(lcd.getLastLeftPos()-d.MARGIN, d.DBL_FONT_SIZE+d.MARGIN, data.BatteryVoltage*10, DBLSIZE + PREC1 + RIGHT + INVERS)
   if VoltageScaled > 0 then
     if (VoltageScaled > telemetry.VoltageAlarm) then
-      lcd.drawText(d.MARGIN, d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN, SENSOR_ONE)
+      lcd.drawText(d.MARGIN, d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN, SENSORS[active_sensor])
     else
-      lcd.drawText(d.MARGIN, d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN, SENSOR_ONE, BLINK)
+      lcd.drawText(d.MARGIN, d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN, SENSORS[active_sensor], BLINK)
     end
     lcd.drawText(lcd.getLastPos(), d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN, ":"..battery_cells.."S")
   else
-    lcd.drawText(d.MARGIN + 1, d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN, CELLS[battery_cells]..":"..SENSOR_ONE, SMLSIZE + INVERS)
+    lcd.drawText(d.MARGIN + 1, d.DBL_FONT_SIZE+d.TELEMETRY_H+d.MARGIN, CELLS[battery_cells]..":"..SENSORS[active_sensor], SMLSIZE + INVERS)
   end
 end
 
@@ -190,17 +191,32 @@ local function drawRSSI(d)
 end
 
 local function drawStandbyScreen(d)
-  lcd.drawText(d.INDENT, d.TELEMETRY_H, "Waiting for "..SENSOR_ONE.."...") 
+  lcd.drawText(d.INDENT, d.TELEMETRY_H, "Waiting for "..SENSORS[active_sensor].."...") 
 end
 
 local function drawMenu(d)
   lcd.drawFilledRectangle(d.INDENT*2,d.INDENT*2,d.TELEMETRY_W+d.INDENT*4,d.DBL_FONT_SIZE*3,ERASE)
   lcd.drawRectangle(d.INDENT*2,d.INDENT*2,d.TELEMETRY_W+d.INDENT*4,d.DBL_FONT_SIZE*3)
   lcd.drawText(d.INDENT*3,d.INDENT*3,"Battery Cells",SMLSIZE)
+  lcd.drawText(d.INDENT*3,d.INDENT*3+d.SML_FONT_SIZE+d.MID_FONT_SIZE,"Sensor Name",SMLSIZE)
+
+  if is_item_one then
+    lcd.drawCombobox(d.INDENT*3,d.INDENT*3+d.SML_FONT_SIZE,d.TELEMETRY_W,CELLS,battery_cache-1,INVERS)
+  else
+    lcd.drawCombobox(d.INDENT*3,d.INDENT*3+d.SML_FONT_SIZE,d.TELEMETRY_W,CELLS,battery_cache-1)
+  end
+
+  if is_item_one then
+    lcd.drawCombobox(d.INDENT*3,d.INDENT*3+d.SML_FONT_SIZE*2+d.MID_FONT_SIZE,d.TELEMETRY_W,SENSORS,sensor_cache-1)
+  else
+    lcd.drawCombobox(d.INDENT*3,d.INDENT*3+d.SML_FONT_SIZE*2+d.MID_FONT_SIZE,d.TELEMETRY_W,SENSORS,sensor_cache-1,INVERS)
+  end
+
+  if is_sensor_edit then
+    lcd.drawCombobox(d.INDENT*3,d.INDENT*3+d.SML_FONT_SIZE*2+d.MID_FONT_SIZE,d.TELEMETRY_W,SENSORS,sensor_cache-1,BLINK)
+  end
   if is_cells_edit then
     lcd.drawCombobox(d.INDENT*3,d.INDENT*3+d.SML_FONT_SIZE,d.TELEMETRY_W,CELLS,battery_cache-1,BLINK)
-  else
-    lcd.drawCombobox(d.INDENT*3,d.INDENT*3+d.SML_FONT_SIZE,d.TELEMETRY_W,CELLS,battery_cache-1,INVERS)
   end
 end
 
@@ -216,26 +232,44 @@ local function run(event)
           if is_cells_edit then
             battery_cells = battery_cache
 	    is_menu_visible = false
-	    is_value_changed = true
+	    is_cells_changed = true
             is_cells_edit = false
+          elseif is_sensor_edit then
+            active_sensor = sensor_cache
+	    is_menu_visible = false
+            is_sensor_edit = false
           else
-            is_cells_edit = true
+            if is_item_one then
+              is_cells_edit = true
+            else
+              is_sensor_edit = true
+            end
           end
 	else
 	  is_menu_visible = true
           battery_cache = battery_cells
+          sensor_cache = active_sensor
 	end
       elseif event == EVT_VIRTUAL_INC then
 	if is_cells_edit then
 	  battery_cache = battery_cache % #CELLS + 1
+        elseif is_sensor_edit then
+          sensor_cache = sensor_cache % #SENSORS + 1
+        elseif is_menu_visible then
+         is_item_one = not is_item_one 
 	end
       elseif event == EVT_VIRTUAL_DEC then
 	if is_cells_edit then
 	  battery_cache = (battery_cache - 2) % #CELLS + 1
+        elseif is_sensor_edit then
+	  sensor_cache = (sensor_cache - 2) % #SENSORS + 1
+        elseif is_menu_visible then
+         is_item_one = not is_item_one 
 	end
       elseif event == EVT_VIRTUAL_EXIT then
 	is_menu_visible = false
         is_cells_edit = false
+        is_sensor_edit = false
       end
     end
     if(is_telemetry) then
@@ -249,10 +283,10 @@ local function run(event)
 	drawMenu(DISPLAY_CONST)
       end
       if (run_clock % 16 == 0) then
-	if is_value_changed then 
+	if is_cells_changed then 
 	  telemetry, data  = initTelemetry()
 	  data = updateTelemetry(telemetry, data) 
-	  is_value_changed = false
+	  is_cells_changed = false
 	  run_clock = 0
 	else
 	  data = updateTelemetry(telemetry, data)
