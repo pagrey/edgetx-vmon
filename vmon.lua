@@ -233,6 +233,7 @@ local function run(event)
             active_sensor = sensor_cache
 	    is_menu_visible = false
 	    is_sensor_changed = true
+            is_telemetry = false
             is_sensor_edit = false
           else
             if is_item_one then
@@ -295,6 +296,9 @@ local function run(event)
       -- Init telemetry
       drawBasicScreen(DISPLAY_CONST)
       drawStandbyScreen(DISPLAY_CONST)
+      if (is_menu_visible) then
+	drawMenu(DISPLAY_CONST)
+      end
       telemetry, data  = initTelemetry()
       data = updateTelemetry(telemetry, data)
       is_telemetry = telemetry.BatteryId > 0
