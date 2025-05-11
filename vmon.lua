@@ -1,6 +1,6 @@
 -- EdgeTX Lua script
 -- Battery and RSS TELEMETRY
--- Place this file in SD Card copy on your computer > /SCRIPTS/TELEMETRY/
+-- Place this script into your `/SCRIPTS/TELEMETRY` folder on the radio.
 -- Designed for 128x64 B&W displays
 --
 -- https://github.com/pagrey
