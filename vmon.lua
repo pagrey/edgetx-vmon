@@ -30,12 +30,14 @@ local ModelCellCount = {
 -- Default cell count
 
 local battery_cells = 2
+local battery_cache
 
 local run_clock = 0
 local is_telemetry = false
 local is_debug = false
 local is_menu_visible = false
 local is_value_changed = false
+local is_cells_edit = false
 
 -- Display constants
 
@@ -192,7 +194,14 @@ local function drawStandbyScreen(d)
 end
 
 local function drawMenu(d)
-  lcd.drawCombobox(d.INDENT*3,d.INDENT*3,d.TELEMETRY_W,CELLS,battery_cells-1,BLINK)
+  lcd.drawFilledRectangle(d.INDENT*2,d.INDENT*2,d.TELEMETRY_W+d.INDENT*4,d.DBL_FONT_SIZE*3,ERASE)
+  lcd.drawRectangle(d.INDENT*2,d.INDENT*2,d.TELEMETRY_W+d.INDENT*4,d.DBL_FONT_SIZE*3)
+  lcd.drawText(d.INDENT*3,d.INDENT*3,"Battery Cells",SMLSIZE)
+  if is_cells_edit then
+    lcd.drawCombobox(d.INDENT*3,d.INDENT*3+d.SML_FONT_SIZE,d.TELEMETRY_W,CELLS,battery_cache-1,BLINK)
+  else
+    lcd.drawCombobox(d.INDENT*3,d.INDENT*3+d.SML_FONT_SIZE,d.TELEMETRY_W,CELLS,battery_cache-1,INVERS)
+  end
 end
 
 local function run(event)
@@ -204,21 +213,29 @@ local function run(event)
     if event ~= 0 then
       if event == EVT_VIRTUAL_ENTER then
 	if is_menu_visible then
-	  is_menu_visible = false
-	  is_value_changed = true
+          if is_cells_edit then
+            battery_cells = battery_cache
+	    is_menu_visible = false
+	    is_value_changed = true
+            is_cells_edit = false
+          else
+            is_cells_edit = true
+          end
 	else
 	  is_menu_visible = true
+          battery_cache = battery_cells
 	end
       elseif event == EVT_VIRTUAL_INC then
-	if is_menu_visible then
-	  battery_cells = battery_cells % #CELLS + 1
+	if is_cells_edit then
+	  battery_cache = battery_cache % #CELLS + 1
 	end
       elseif event == EVT_VIRTUAL_DEC then
-	if is_menu_visible then
-	  battery_cells = (battery_cells - 2) % #CELLS + 1
+	if is_cells_edit then
+	  battery_cache = (battery_cache - 2) % #CELLS + 1
 	end
       elseif event == EVT_VIRTUAL_EXIT then
 	is_menu_visible = false
+        is_cells_edit = false
       end
     end
     if(is_telemetry) then
