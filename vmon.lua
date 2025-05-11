@@ -198,24 +198,20 @@ local function drawMenu(d)
   lcd.drawRectangle(d.INDENT*2,d.INDENT*2,d.TELEMETRY_W+d.INDENT*4,d.SML_FONT_SIZE*2+d.MID_FONT_SIZE*2+d.INDENT*3)
   lcd.drawText(d.INDENT*3,d.INDENT*3,"Battery Cells",SMLSIZE)
   lcd.drawText(d.INDENT*3,d.INDENT*3+d.SML_FONT_SIZE+d.MID_FONT_SIZE,"Sensor Name",SMLSIZE)
-
-  if is_item_one then
-    lcd.drawCombobox(d.INDENT*3,d.INDENT*3+d.SML_FONT_SIZE,d.TELEMETRY_W,CELLS,battery_cache-1,INVERS)
-  else
+  if not is_item_one then
     lcd.drawCombobox(d.INDENT*3,d.INDENT*3+d.SML_FONT_SIZE,d.TELEMETRY_W,CELLS,battery_cache-1)
-  end
-
-  if is_item_one then
-    lcd.drawCombobox(d.INDENT*3,d.INDENT*3+d.SML_FONT_SIZE*2+d.MID_FONT_SIZE,d.TELEMETRY_W,SENSORS,sensor_cache-1)
+    if is_sensor_edit then
+      lcd.drawCombobox(d.INDENT*3,d.INDENT*3+d.SML_FONT_SIZE*2+d.MID_FONT_SIZE,d.TELEMETRY_W,SENSORS,sensor_cache-1,BLINK)
+    else
+      lcd.drawCombobox(d.INDENT*3,d.INDENT*3+d.SML_FONT_SIZE*2+d.MID_FONT_SIZE,d.TELEMETRY_W,SENSORS,sensor_cache-1,INVERS)
+    end
   else
-    lcd.drawCombobox(d.INDENT*3,d.INDENT*3+d.SML_FONT_SIZE*2+d.MID_FONT_SIZE,d.TELEMETRY_W,SENSORS,sensor_cache-1,INVERS)
-  end
-
-  if is_sensor_edit then
-    lcd.drawCombobox(d.INDENT*3,d.INDENT*3+d.SML_FONT_SIZE*2+d.MID_FONT_SIZE,d.TELEMETRY_W,SENSORS,sensor_cache-1,BLINK)
-  end
-  if is_cells_edit then
-    lcd.drawCombobox(d.INDENT*3,d.INDENT*3+d.SML_FONT_SIZE,d.TELEMETRY_W,CELLS,battery_cache-1,BLINK)
+    lcd.drawCombobox(d.INDENT*3,d.INDENT*3+d.SML_FONT_SIZE*2+d.MID_FONT_SIZE,d.TELEMETRY_W,SENSORS,sensor_cache-1)
+    if is_cells_edit then
+      lcd.drawCombobox(d.INDENT*3,d.INDENT*3+d.SML_FONT_SIZE,d.TELEMETRY_W,CELLS,battery_cache-1,BLINK)
+    else
+      lcd.drawCombobox(d.INDENT*3,d.INDENT*3+d.SML_FONT_SIZE,d.TELEMETRY_W,CELLS,battery_cache-1,INVERS)
+    end
   end
 end
 
